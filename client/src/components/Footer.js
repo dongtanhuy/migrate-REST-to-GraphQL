@@ -7,7 +7,7 @@ import withTodos from '../withTodos';
 const withClearAllCompleted = gql`
   mutation ClearAllCompleted {
     clearAllCompleted
-      @rest(method: "DELETE", type: "Todo", path: "/todos/completed") {
+    {
       ids
     }
   }

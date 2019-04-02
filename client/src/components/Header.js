@@ -7,11 +7,11 @@ import withTodos from '../withTodos';
 const withCreateTodo = gql`
   mutation CreateTodo($text: String!) {
     createTodo(text: $text)
-      @rest(type: "Todo", method: "POST", path:"/todos", bodyKey: "text"){
-        id
-        text
-        completed
-      }
+    {
+      id
+      text
+      completed
+    }
   }
 `;
 
@@ -20,7 +20,7 @@ export default compose(
     props: ({mutate}) => ({
       createTodo: (text) => {
         mutate({
-          variables: {text},
+          variables: text,
           refetchQueries: [{ query: withTodos}]
         })
       }
