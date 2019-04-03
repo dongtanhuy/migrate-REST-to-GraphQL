@@ -3,7 +3,8 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const axios = require('axios')
 const { ApolloServer } = require("apollo-server-express");
-const { makeExecutableSchema } = require("graphql-tools");
+
+const database = require('./database');
 
 
 const app = express();
@@ -42,35 +43,58 @@ const typeDefs = `
 const resolvers = {
   Query: {
     todos: async () => {
-      const response = await axios.get('http://localhost:4000/todos')
-      return response.data
+      const todos = await database("todos").select();
+      console.log(todos)
+      return todos
     }
   },
   Mutation: {
     createTodo:async (_, {text}) => {
-      const response = await axios.post('http://localhost:4000/todos', {text})
-      return response.data
+      const [id] = await database('todos').insert({
+        text,
+        completed: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      return { id, text, completed: false,}
     },
     toggleTodo:  async (_, {id}) => {
-      const response = await axios.put(`http://localhost:4000/todos/${id}/toggle`)
-      return response.data
+      const [todo] = await database('todos').where("id", id);
+      await database('todos')
+        .where('id', id)
+        .update({
+          completed: !todo.completed,
+          updatedAt: Date.now()
+        })
+      return {...todo, completed: !todo.completed}
     },
     toggleAllTodos: async () => {
-      const response = await axios.put('http://localhost:4000/todos/toggle')
-      return response.data
+      const isAnyTodoIncomplete = await database("todos").where("completed", false);
+      const updated = await database("todos").update({
+        completed: !!isAnyTodoIncomplete.length,
+        updatedAt: Date.now()
+      });
+      return { updated }
     },
     removeTodo: async (_, {id}) => {
-      await axios.delete(`http://localhost:4000/todo/${id}`)
+      await database('todos').where("id", id).delete();
       return true
     },
     editTodo: async (_, {id, text}) => {
-      const response = await axios.put(`http://localhost:4000/todos/${id}`, {text})
-      return response.data
+      await database('todos').where('id', id).update({
+        text: text,
+        updatedAt: Date.now()
+      })
+      const [todo] = await database("todos").where({ id });
+      return todo
     },
     clearAllCompleted: async () => {
-      const response = await axios.delete('http://localhost:4000/todos/completed')
-      const {ids} = response.data
-      return ids
+      const completedTodos = await database('todos').where("completed", true).select("id");
+      await database("todos")
+        .where("completed", true)
+        .delete();
+      
+      return { ids: completedTodos.map(({ id }) => id) }
     }
   }
 }
