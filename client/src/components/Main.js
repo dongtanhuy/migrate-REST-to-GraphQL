@@ -48,37 +48,60 @@ export default compose(
     props: ({mutate}) => ({
       toggleAllTodos: () => {
         mutate({
-          refetchQueries: [{ query: withTodos }]
         })
       }
-    })
+    }),
+    options: {
+      update: (proxy, { data: { toggleTodo } }) => {
+        const data = proxy.readQuery({ query: withTodos });
+        const { todos } = data;
+        const newTodos = todos.map(todo => Object.assign(todo, { completed : !todo.completed }));
+        proxy.writeQuery({ query: withTodos, data: { 
+          todos: newTodos
+        } });
+      },
+    }
   }),
   graphql(withToggleTodo, {
     props: ({mutate}) => ({
       toggleTodo: ({ id }) => {
         mutate({
           variables: {id},
-          refetchQueries: [{ query: withTodos }]
         })
       }
-    })
+    }),
+    options: {
+      update: (proxy, { data: { toggleTodo } }) => {
+        const data = proxy.readQuery({ query: withTodos });
+        const { todos } = data;
+        todos[todos.findIndex(el => el._id === toggleTodo.id)] = toggleTodo;
+        proxy.writeQuery({ query: withTodos, data });
+      },
+    }
   }),
   graphql(withEditTodo, {
     props: ({ mutate }) => ({
       editTodo: (id, text) =>
         mutate({
           variables: { id, text },
-          refetchQueries: [{ query: withTodos }]
         })
-    })
+    }),
+    options: {
+      update: (proxy, { data: { toggleTodo } }) => {
+        const data = proxy.readQuery({ query: withTodos });
+        const { todos } = data;
+        todos[todos.findIndex(el => el._id === toggleTodo.id)] = toggleTodo;
+        proxy.writeQuery({ query: withTodos, data });
+      },
+    }
   }),
   graphql(withRemoveTodo, {
-    props: ({mutate}) => ({
+    props: ({mutate, client, query}) => ({
       removeTodo: id => {
         mutate({
           variables: {id},
           refetchQueries: [{ query: withTodos }]
-        })
+        });
       }
     })
   }),
