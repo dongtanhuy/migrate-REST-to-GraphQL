@@ -6,8 +6,33 @@ const { ApolloServer } = require("apollo-server-express");
 
 const database = require('./database');
 
+const jwt = require('jsonwebtoken');
+const SECRET_KEY_JWT = 'hihi'
+const tokenWithAdminRole = jwt.sign({ role: 'Admin', user: 'Duy'}, SECRET_KEY_JWT)
+const tokenWithUserRole = jwt.sign({ role: 'User', user: 'Duy'}, SECRET_KEY_JWT)
+console.log('admin token', tokenWithAdminRole);
+console.log('user token', tokenWithUserRole);
 
+const attachUserToContext = (req, res) => {
+  const token = req.headers.authorization;
+  if (token) {
+    const decoded = jwt.verify(
+      token.replace('Bearer ', ''),
+      SECRET_KEY_JWT
+    );
+    return decoded;
+  } else {
+    res
+      .status(401)
+      .send({ message: 'You must supply a JWT for authorization!' });
+  }
+};
 const app = express();
+
+app.get("/todos", async (req, res) => {
+  const todos = await database("todos").select();
+  res.status(200).send(todos);
+});
 
 // Define typeDefs
 const typeDefs = `
@@ -49,7 +74,10 @@ const resolvers = {
     }
   },
   Mutation: {
-    createTodo:async (_, {text}) => {
+    createTodo:async (_, {text}, {currentUser}) => {
+      if (currentUser.role !== 'Admin') {
+        throw new Error('You have no permission');
+      }
       const [id] = await database('todos').insert({
         text,
         completed: false,
@@ -101,7 +129,35 @@ const resolvers = {
 
 const server = new ApolloServer({
   typeDefs,
-  resolvers
+  resolvers,
+  context: async ({ req, res }) => {
+    let authToken = null;
+    let currentUser = null;
+    console.log('hihi');
+     try {
+        authToken = req.headers.authorization;
+        if (authToken) {
+            currentUser = await attachUserToContext(req, res);
+        }
+        console.log(currentUser);
+     } catch (e) {
+        console.warn(`Unable to authenticate using auth token: ${authToken}`);
+     }
+    return {
+        authToken,
+        currentUser,
+    };
+ },
+  playground: {
+    settings: {
+      'editor.theme': 'dark',
+    },
+    tabs: [
+      {
+        endpoint: 'http://localhost:5000/graphql',
+      },
+    ],
+  },
 })
 server.applyMiddleware({app});
 
