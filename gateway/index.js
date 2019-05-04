@@ -7,11 +7,26 @@ const { ApolloServer } = require("apollo-server-express");
 const database = require('./database');
 
 const jwt = require('jsonwebtoken');
-const SECRET_KEY_JWT = 'hihi'
-const tokenWithAdminRole = jwt.sign({ role: 'Admin', user: 'Duy'}, SECRET_KEY_JWT)
-const tokenWithUserRole = jwt.sign({ role: 'User', user: 'Duy'}, SECRET_KEY_JWT)
+const SECRET_KEY_JWT = 'graphqlmeetup';
+const tokenWithAdminRole = jwt.sign({ role: 'Admin', user: 'Duy'}, SECRET_KEY_JWT);
+const tokenWithUserRole = jwt.sign({ role: 'User', user: 'Duy'}, SECRET_KEY_JWT);
 console.log('admin token', tokenWithAdminRole);
 console.log('user token', tokenWithUserRole);
+
+
+const authenticateWrapper = next => (root, args, context, info) => {
+  if (!context.currentUser) {
+    throw new Error('This is not public api');
+  }
+  return next(root, args, context, info);
+}
+
+const authorizationWrapper = role => next => (root, args, context, info) => {
+  if (context.currentUser.role !== role) {
+    throw new Error('You have no permission with this api');
+  } 
+  return next(root, args, context, info);
+}
 
 const attachUserToContext = (req, res) => {
   const token = req.headers.authorization;
@@ -69,15 +84,11 @@ const resolvers = {
   Query: {
     todos: async () => {
       const todos = await database("todos").select();
-      console.log(todos)
       return todos
     }
   },
   Mutation: {
-    createTodo:async (_, {text}, {currentUser}) => {
-      if (currentUser.role !== 'Admin') {
-        throw new Error('You have no permission');
-      }
+    createTodo: authenticateWrapper(async (_, {text}, {currentUser}) => {
       const [id] = await database('todos').insert({
         text,
         completed: false,
@@ -85,7 +96,7 @@ const resolvers = {
         updatedAt: Date.now(),
       });
       return { id, text, completed: false,}
-    },
+    }),
     toggleTodo:  async (_, {id}) => {
       const [todo] = await database('todos').where("id", id);
       await database('todos')
@@ -104,10 +115,10 @@ const resolvers = {
       });
       return { updated }
     },
-    removeTodo: async (_, {id}) => {
+    removeTodo: authenticateWrapper(authorizationWrapper('Admin')( async (root, {id}, context) => {
       await database('todos').where("id", id).delete();
       return true
-    },
+    })),
     editTodo: async (_, {id, text}) => {
       await database('todos').where('id', id).update({
         text: text,
@@ -133,16 +144,14 @@ const server = new ApolloServer({
   context: async ({ req, res }) => {
     let authToken = null;
     let currentUser = null;
-    console.log('hihi');
-     try {
-        authToken = req.headers.authorization;
-        if (authToken) {
-            currentUser = await attachUserToContext(req, res);
-        }
-        console.log(currentUser);
-     } catch (e) {
-        console.warn(`Unable to authenticate using auth token: ${authToken}`);
-     }
+    try {
+      authToken = req.headers.authorization;
+      if (authToken) {
+          currentUser = await attachUserToContext(req, res);
+      }
+    } catch (e) {
+      console.warn(`Unable to authenticate using auth token: ${authToken}`);
+    }
     return {
         authToken,
         currentUser,
@@ -162,5 +171,5 @@ const server = new ApolloServer({
 server.applyMiddleware({app});
 
 app.listen(5000, () => {
-  console.log("Go to http://localhost:5000/graphiql to run queries!");
+  console.log("Go to http://localhost:5000/graphql to run queries!");
 });
