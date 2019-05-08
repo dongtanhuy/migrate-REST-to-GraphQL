@@ -1,0 +1,28 @@
+body {
+  background-color: #212121 !important;
+}
+
+.todoapp {
+  background-color: #212121 !important;
+}
+
+.todoapp .header h1 {
+  color: white;
+}
+
+.todoapp .header .new-todo {
+  border: 1px solid white;
+  color: white;
+}
+
+.todoapp .main .todo-list label {
+  color: white;
+}
+
+.todoapp .footer span {
+  color: white;
+}
+
+.todoapp .footer li a {
+  color: white;
+}
